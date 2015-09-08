@@ -1,0 +1,20 @@
+{
+  "name": "bullettime",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "node-gyp build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "babel": "^5.8.23",
+    "colors": "^1.1.2",
+    "nan": "^1.7.0",
+    "opencv": "^3.2.0",
+    "watch": "^0.16.0",
+    "yargs": "^3.24.0"
+  }
+}
