@@ -1,5 +1,5 @@
 {
-  "name": "bullettime",
+  "name": "stabilize",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "nan": "^1.7.0",
+    "nan": "^1.7.0"
   }
 }
