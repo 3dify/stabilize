@@ -70,13 +70,13 @@ NAN_METHOD(ComputeKalman) {
 	Mat last_T;
 	Mat prev_grey_,cur_grey_;
 
-  for(int i = 0; i<max_frames; i++) {
+  for(int i = 0; i<=max_frames; i++) {
     cur = cv::imread(std::string(*NanAsciiString(srcArray->Get(i)->ToString())), CV_LOAD_IMAGE_COLOR);
      
 		if(cur.data == NULL) {
 			break;
 		}
-
+   
 		cvtColor(cur, cur_grey, COLOR_BGR2GRAY);
 
 		// vector from prev to cur
@@ -161,7 +161,11 @@ NAN_METHOD(ComputeKalman) {
 		
 		warpAffine(prev, cur2, T, cur.size());
     
-    cv::imwrite(std::string(*NanAsciiString(srcArray->Get(0)->ToString())), CV_LOAD_IMAGE_COLOR);
+    cv::imwrite(std::string(*NanAsciiString(destArray->Get(i)->ToString())), cur2);
+    prev = cur.clone();//cur.copyTo(prev);
+    cur_grey.copyTo(prev_grey);
+
+    k++;
   }
 
 
