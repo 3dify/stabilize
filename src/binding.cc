@@ -21,63 +21,75 @@ void Method(const FunctionCallbackInfo<Value>& args) {
 
 NAN_METHOD(ComputeKalman) {
   NanEscapableScope();
+
   // extract quad args
   Local<Array> srcArray = Local<Array>::Cast(args[0]->ToObject());
   Local<Array> destArray = Local<Array>::Cast(args[1]->ToObject());
-  
+
 
 	Mat cur, cur_grey;
 	Mat prev, prev_grey;
 
-	prev = cv::imread(std::string(*NanAsciiString(srcArray->Get(0)->ToString())), CV_LOAD_IMAGE_COLOR);//get the first frame.ch
-	cvtColor(prev, prev_grey, COLOR_BGR2GRAY);
+	prev = cv::imread(std::string(*NanAsciiString(srcArray->Get(0)->ToString())), CV_LOAD_IMAGE_ANYCOLOR);
 
+  if (prev.channels() == 3)
+	  cvtColor(prev, prev_grey, COLOR_BGR2GRAY);
+  else
+    prev_grey = prev.clone();
 
 	// Step 1 - Get previous to current frame transformation (dx, dy, da) for all frames
-	vector <TransformParam> prev_to_cur_transform; // previous to current
+	vector <TransformParam> prev_to_cur_transform;
+
 	// Accumulated frame to frame transform
 	double a = 0;
 	double x = 0;
 	double y = 0;
+
 	// Step 2 - Accumulate the transformations to get the image trajectory
-	vector <Trajectory> trajectory; // trajectory at all frames
-	//
+	vector <Trajectory> trajectory;
+
 	// Step 3 - Smooth out the trajectory using an averaging window
-	vector <Trajectory> smoothed_trajectory; // trajectory at all frames
-	Trajectory X;//posteriori state estimate
-	Trajectory	X_;//priori estimate
-	Trajectory P;// posteriori estimate error covariance
-	Trajectory P_;// priori estimate error covariance
-	Trajectory K;//gain
-	Trajectory	z;//actual measurement
-	double pstd = 4e-3;//can be changed
-	double cstd = 0.25;//can be changed
-	Trajectory Q(pstd,pstd,pstd);// process noise covariance
-	Trajectory R(cstd,cstd,cstd);// measurement noise covariance 
+	vector <Trajectory> smoothed_trajectory;
+	Trajectory X;  // posteriori state estimate
+	Trajectory X_; // priori estimate
+	Trajectory P;  // posteriori estimate error covariance
+	Trajectory P_; // priori estimate error covariance
+	Trajectory K;  // gain
+	Trajectory z;  // actual measurement
+	double pstd = 4e-3; //can be changed
+	double cstd = 0.25; //can be changed
+	Trajectory Q(pstd,pstd,pstd); // process noise covariance
+	Trajectory R(cstd,cstd,cstd); // measurement noise covariance
+
 	// Step 4 - Generate new set of previous to current transform, such that the trajectory ends up being the same as the smoothed trajectory
 	vector <TransformParam> new_prev_to_cur_transform;
-	//
+
 	// Step 5 - Apply the new transformation to the video
-	//cap.set(CV_CAP_PROP_POS_FRAMES, 0);
 	Mat T(2,3,CV_64F);
 
 	int vert_border = HORIZONTAL_BORDER_CROP * prev.rows / prev.cols; // get the aspect ratio correct
-	VideoWriter outputVideo; 
-	outputVideo.open("compare.avi" , CV_FOURCC('X','V','I','D'), 24,cvSize(cur.rows, cur.cols*2+10), true);  
-	//
+	VideoWriter outputVideo;
+	outputVideo.open("compare.avi" , CV_FOURCC('X','V','I','D'), 24,cvSize(cur.rows, cur.cols*2+10), true);
+
 	int k=1;
 	int max_frames = srcArray->Length();
 	Mat last_T;
 	Mat prev_grey_,cur_grey_;
 
   for(int i = 0; i<=max_frames; i++) {
-    cur = cv::imread(std::string(*NanAsciiString(srcArray->Get(i)->ToString())), CV_LOAD_IMAGE_COLOR);
-     
+    std::string img(*NanAsciiString(srcArray->Get(i)->ToString()));
+    cur = cv::imread(img, CV_LOAD_IMAGE_ANYCOLOR & CV_LOAD_IMAGE_ANYDEPTH);
+
+    std::cout << "Count " << cur.channels() <<  " total: " << cur.total() << " img: " << img << std::endl;
+
 		if(cur.data == NULL) {
 			break;
 		}
-   
-		cvtColor(cur, cur_grey, COLOR_BGR2GRAY);
+
+    if (cur.channels() == 3)
+      cvtColor(cur, cur_grey, COLOR_BGR2GRAY);
+    else
+      cur_grey = cur.clone();
 
 		// vector from prev to cur
 		vector <Point2f> prev_corner, cur_corner;
@@ -110,38 +122,31 @@ NAN_METHOD(ComputeKalman) {
 		double dx = T.at<double>(0,2);
 		double dy = T.at<double>(1,2);
 		double da = atan2(T.at<double>(1,0), T.at<double>(0,0));
-		//
-		//prev_to_cur_transform.push_back(TransformParam(dx, dy, da));
 
-		//
 		// Accumulated frame to frame transform
 		x += dx;
 		y += dy;
 		a += da;
-		//trajectory.push_back(Trajectory(x,y,a));
-		//
-		//
+
 		z = Trajectory(x,y,a);
-		//
+
 		if(k==1){
 			// intial guesses
 			X = Trajectory(0,0,0); //Initial estimate,  set 0
 			P =Trajectory(1,1,1); //set error variance,set 1
-		}
-		else
-		{
+		} else {
 			//time update£¨prediction£©
 			X_ = X; //X_(k) = X(k-1);
 			P_ = P+Q; //P_(k) = P(k-1)+Q;
+
 			// measurement update£¨correction£©
 			K = P_/( P_+R ); //gain;K(k) = P_(k)/( P_(k)+R );
 			X = X_+K*(z-X_); //z-X_ is residual,X(k) = X_(k)+K(k)*(z(k)-X_(k)); 
 			P = (Trajectory(1,1,1)-K)*P_; //P(k) = (1-K(k))*P_(k);
 		}
-		//smoothed_trajectory.push_back(X);
-		//-
+
 		// target - current
-		double diff_x = X.x - x;//
+		double diff_x = X.x - x;
 		double diff_y = X.y - y;
 		double diff_a = X.a - a;
 
@@ -158,16 +163,16 @@ NAN_METHOD(ComputeKalman) {
 		T.at<double>(1,2) = dy;
 
 		Mat cur2;
-		
+
 		warpAffine(prev, cur2, T, cur.size());
-    
+
     cv::imwrite(std::string(*NanAsciiString(destArray->Get(i)->ToString())), cur2);
-    prev = cur.clone();//cur.copyTo(prev);
-    cur_grey.copyTo(prev_grey);
+
+    prev = cur.clone();
+    prev_grey = cur_grey.clone();
 
     k++;
   }
-
 
   NanReturnUndefined();
 }
