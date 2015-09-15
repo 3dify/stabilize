@@ -9,6 +9,11 @@ install with node-gyp
   $ cd myProject
   $ npm install ../stabilize # <= this should build the module
 ```
+or
+
+```bash
+npm install --save https://github.com/3dify/stabilize.git
+```
 
 usage
 
